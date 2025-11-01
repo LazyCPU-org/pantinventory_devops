@@ -1,0 +1,8 @@
+# Ignore actual configuration files (contain sensitive domain info)
+conf.d/*.conf
+
+# Keep example files
+!conf.d/*.conf.example
+
+# Ignore logs
+*.log

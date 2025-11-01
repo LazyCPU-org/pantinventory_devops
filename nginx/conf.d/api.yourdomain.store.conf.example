@@ -1,0 +1,92 @@
+# Backend API Proxy Configuration (api.yourdomain.store)
+#
+# INSTRUCTIONS:
+# 1. Copy this file: cp api.yourdomain.store.conf.example api.yourdomain.store.conf
+# 2. Replace 'yourdomain.store' with your actual domain
+# 3. After obtaining SSL certificates, uncomment the SSL server block
+# 4. Reload nginx: docker compose exec nginx nginx -s reload
+
+# HTTP - Redirect to HTTPS
+server {
+    listen 80;
+    listen [::]:80;
+    server_name api.yourdomain.store;
+
+    # Allow Let's Encrypt ACME challenges
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    # Redirect all other HTTP traffic to HTTPS
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+# HTTPS - Main API configuration
+# UNCOMMENT THIS BLOCK AFTER OBTAINING SSL CERTIFICATES
+#server {
+#    listen 443 ssl http2;
+#    listen [::]:443 ssl http2;
+#    server_name api.yourdomain.store;
+#
+#    # SSL certificates (managed by certbot)
+#    ssl_certificate /etc/letsencrypt/live/api.yourdomain.store/fullchain.pem;
+#    ssl_certificate_key /etc/letsencrypt/live/api.yourdomain.store/privkey.pem;
+#
+#    # SSL configuration
+#    include /etc/nginx/snippets/ssl-params.conf;
+#
+#    # Security headers
+#    include /etc/nginx/snippets/security-headers.conf;
+#
+#    # HSTS (enable after confirming SSL works)
+#    # add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+#
+#    # Rate limiting for API (stricter than frontend)
+#    limit_req zone=api_limit burst=20 nodelay;
+#    limit_conn addr 10;
+#
+#    # CORS headers (allow frontend to access API)
+#    add_header 'Access-Control-Allow-Origin' 'https://app.yourdomain.store' always;
+#    add_header 'Access-Control-Allow-Methods' 'GET, POST, PUT, DELETE, PATCH, OPTIONS' always;
+#    add_header 'Access-Control-Allow-Headers' 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization' always;
+#    add_header 'Access-Control-Expose-Headers' 'Content-Length,Content-Range' always;
+#    add_header 'Access-Control-Allow-Credentials' 'true' always;
+#
+#    # Handle preflight OPTIONS requests
+#    if ($request_method = 'OPTIONS') {
+#        add_header 'Access-Control-Allow-Origin' 'https://app.yourdomain.store' always;
+#        add_header 'Access-Control-Allow-Methods' 'GET, POST, PUT, DELETE, PATCH, OPTIONS' always;
+#        add_header 'Access-Control-Allow-Headers' 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization' always;
+#        add_header 'Access-Control-Max-Age' 1728000;
+#        add_header 'Content-Type' 'text/plain; charset=utf-8';
+#        add_header 'Content-Length' 0;
+#        return 204;
+#    }
+#
+#    # Logging
+#    access_log /var/log/nginx/api.yourdomain.store.access.log;
+#    error_log /var/log/nginx/api.yourdomain.store.error.log;
+#
+#    # Proxy to backend container
+#    location / {
+#        proxy_pass http://pantinventory_backend:3000;
+#        include /etc/nginx/snippets/proxy-params.conf;
+#
+#        # Increase body size for API uploads
+#        client_max_body_size 50M;
+#
+#        # Don't cache API responses
+#        add_header Cache-Control "no-cache, no-store, must-revalidate";
+#        add_header Pragma "no-cache";
+#        add_header Expires "0";
+#    }
+#
+#    # Health check endpoint
+#    location /health {
+#        access_log off;
+#        proxy_pass http://pantinventory_backend:3000/health;
+#        include /etc/nginx/snippets/proxy-params.conf;
+#    }
+#}

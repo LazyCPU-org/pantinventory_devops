@@ -4,8 +4,9 @@
 
 This stage sets up the network infrastructure for PantInventory applications to communicate securely. This includes:
 - Docker network for container communication
-- Nginx Proxy Manager for reverse proxy and SSL termination
-- Let's Encrypt SSL certificates
+- Nginx reverse proxy for routing and SSL termination
+- Let's Encrypt SSL certificates (via Certbot)
+- Rate limiting and security features
 - CORS configuration
 
 **Time Estimate**: 30-45 minutes
@@ -19,19 +20,21 @@ This stage sets up the network infrastructure for PantInventory applications to 
 - **Type**: Bridge network
 - **Purpose**: Allows all PantInventory containers to communicate
 
-### 2. Nginx Proxy Manager
+### 2. Nginx Reverse Proxy
 - **Role**: Reverse proxy and SSL termination
-- **Features**: Web UI, automatic SSL, easy configuration
-- **Ports**: 80 (HTTP), 443 (HTTPS), 81 (Admin UI)
+- **Features**: Infrastructure as Code, automatic SSL (Certbot), rate limiting, security headers
+- **Ports**: 80 (HTTP), 443 (HTTPS)
 
 ### 3. SSL Certificates
 - **Provider**: Let's Encrypt (free, automated)
-- **Renewal**: Automatic via nginx-proxy-manager
+- **Tool**: Certbot
+- **Renewal**: Automatic (every 12 hours)
 - **Coverage**: All your domains (frontend, backend, etc.)
 
-### 4. CORS Configuration
-- **Purpose**: Allow frontend to communicate with backend API
-- **Method**: Custom headers in nginx-proxy-manager
+### 4. Security Features
+- **Rate limiting**: Protection against abuse
+- **Security headers**: X-Frame-Options, X-Content-Type-Options, etc.
+- **CORS**: Allow frontend to communicate with backend API
 
 ---
 
@@ -63,33 +66,33 @@ cd pantinventory_devops
 
 This will:
 1. Create Docker network
-2. Deploy nginx-proxy-manager
+2. Deploy nginx + certbot
 3. Verify deployment
 
 ---
 
 ## Manual Setup (Step by Step)
 
-If you prefer manual configuration, see individual guides:
+If you prefer manual configuration, see individual guides (in order):
 
-1. **[Docker Network Setup](./docker-network.md)** - Create pantinventory_network
-2. **[Nginx Proxy Manager](./nginx-proxy-manager.md)** - Deploy reverse proxy
-3. **[SSL Certificates](./ssl-certificates.md)** - Configure Let's Encrypt
-4. **[CORS Configuration](./cors-configuration.md)** - Enable frontend-backend communication
+1. **[Docker Network Setup](./01-docker-network.md)** - Create pantinventory_network
+2. **[Nginx Configuration](./02-nginx.md)** - Complete guide: deploy nginx, configure SSL, CORS, rate limiting, and manage all configurations
 
 ---
 
 ## Architecture Diagram
 
 ```
-Internet (HTTP/HTTPS)
+Internet (HTTPS only)
         ↓
    Port 80/443
         ↓
 ┌────────────────────────┐
-│ Nginx Proxy Manager    │
+│ Nginx                  │
 │ - SSL Termination      │
 │ - Reverse Proxy        │
+│ - Rate Limiting        │
+│ - Security Headers     │
 │ - CORS Headers         │
 └────────────────────────┘
         ↓
@@ -120,22 +123,32 @@ networks:
     external: true
 ```
 
-### Nginx Proxy Manager
+### Nginx Reverse Proxy
 
-Deployed via `03-nginx-proxy-setup.sh`:
+Deployed via `03-nginx-setup.sh`:
 
 ```yaml
 version: '3.8'
 services:
-  nginx-proxy-manager:
-    image: jc21/nginx-proxy-manager:latest
+  nginx:
+    image: nginx:alpine
     ports:
       - "80:80"
       - "443:443"
-      - "81:81"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./conf.d:/etc/nginx/conf.d:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
     networks:
       - pantinventory_network
+
+  certbot:
+    image: certbot/certbot:latest
+    volumes:
+      - /etc/letsencrypt:/etc/letsencrypt
 ```
+
+All configuration files are version-controlled in your repository.
 
 ---
 
@@ -147,12 +160,14 @@ After completing this stage:
 # Check Docker network exists
 docker network ls | grep pantinventory_network
 
-# Check nginx-proxy-manager is running
-docker ps | grep nginx-proxy-manager
+# Check nginx is running
+docker ps | grep pantinventory_nginx
 
-# Access admin UI
-# http://YOUR_VPS_IP:81
-# Default: admin@example.com / changeme
+# Test nginx configuration
+docker compose -f /opt/pantinventory/nginx/docker-compose.yml exec nginx nginx -t
+
+# Test HTTP access
+curl -I http://YOUR_DOMAIN
 ```
 
 ---
@@ -161,18 +176,17 @@ docker ps | grep nginx-proxy-manager
 
 Once Stage 2 is complete:
 
-1. **Configure nginx-proxy-manager**:
-   - Access admin UI at `http://YOUR_VPS_IP:81`
-   - Change default password
-   - Add proxy hosts for your domains
+1. **Configure DNS**:
+   - Point your domains to your VPS IP
+   - See [Nginx Guide - Step 1](./02-nginx.md#step-1-configure-dns)
 
-2. **Set up SSL certificates**:
-   - See [SSL Certificates Guide](./ssl-certificates.md)
-   - Configure Let's Encrypt for your domains
+2. **Obtain SSL certificates**:
+   - Run `./scripts/04-ssl-setup.sh`
+   - See [Nginx Guide - Step 4](./02-nginx.md#step-4-obtain-ssl-certificates)
 
-3. **Configure CORS**:
-   - See [CORS Configuration Guide](./cors-configuration.md)
-   - Allow frontend to access backend API
+3. **Enable HTTPS**:
+   - Uncomment SSL server blocks in nginx configs
+   - See [Nginx Guide - Step 5](./02-nginx.md#step-5-enable-https-configuration)
 
 4. **Deploy Applications**:
    - Proceed to [Stage 3: Application Deployment](../03-application-deployment/README.md)
@@ -182,10 +196,8 @@ Once Stage 2 is complete:
 ## Files in This Directory
 
 - **README.md** - This file (overview)
-- **docker-network.md** - Docker network details
-- **nginx-proxy-manager.md** - Nginx proxy setup and configuration
-- **ssl-certificates.md** - SSL certificate setup with Let's Encrypt
-- **cors-configuration.md** - CORS headers configuration
+- **01-docker-network.md** - Docker network setup (read first)
+- **02-nginx.md** - Complete nginx guide (setup, SSL, CORS, configuration management)
 
 ---
 
@@ -193,7 +205,8 @@ Once Stage 2 is complete:
 
 After completing Stage 2:
 - ✅ Docker network created (`pantinventory_network`)
-- ✅ Nginx Proxy Manager running (ports 80, 443, 81)
-- ✅ Ready to configure SSL certificates
-- ✅ Ready to configure CORS headers
+- ✅ Nginx running (ports 80, 443)
+- ✅ Certbot container ready for SSL certificates
+- ✅ All configuration files version-controlled
+- ✅ Ready to configure DNS and SSL
 - ✅ Ready to deploy applications

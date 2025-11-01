@@ -114,7 +114,7 @@ services:
 ```
 pantinventory_network (172.18.0.0/16)
 │
-├── nginx-proxy-manager (172.18.0.x)
+├── nginx (172.18.0.x)
 │   └── Exposes: 80, 443 to internet
 │
 ├── frontend (172.18.0.x)
@@ -133,7 +133,7 @@ pantinventory_network (172.18.0.0/16)
 
 ### Network Isolation
 
-- ✅ Only nginx-proxy-manager exposes ports to the internet
+- ✅ Only nginx exposes ports to the internet
 - ✅ Backend and database are NOT directly accessible from internet
 - ✅ Frontend is NOT directly accessible (served through nginx)
 - ✅ Communication between containers is encrypted at application level if needed
@@ -144,8 +144,8 @@ The VPS firewall (UFW) configuration:
 
 ```bash
 # Only these ports open to internet
-sudo ufw allow 80/tcp   # HTTP (nginx-proxy-manager)
-sudo ufw allow 443/tcp  # HTTPS (nginx-proxy-manager)
+sudo ufw allow 80/tcp   # HTTP (nginx)
+sudo ufw allow 443/tcp  # HTTPS (nginx)
 sudo ufw allow 22/tcp   # SSH
 
 # Database port NOT exposed to internet
@@ -251,4 +251,4 @@ docker network create \
 - ✅ All containers must join this network
 - ✅ Use `external: true` in docker-compose.yml
 - ✅ Containers communicate by name
-- ✅ Only nginx-proxy-manager exposes ports to internet
+- ✅ Only nginx exposes ports to internet
