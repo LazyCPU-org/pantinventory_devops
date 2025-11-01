@@ -48,32 +48,24 @@ server {
 #    limit_req zone=api_limit burst=20 nodelay;
 #    limit_conn addr 10;
 #
-#    # CORS headers (allow frontend to access API)
-#    add_header 'Access-Control-Allow-Origin' 'https://app.yourdomain.store' always;
-#    add_header 'Access-Control-Allow-Methods' 'GET, POST, PUT, DELETE, PATCH, OPTIONS' always;
-#    add_header 'Access-Control-Allow-Headers' 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization' always;
-#    add_header 'Access-Control-Expose-Headers' 'Content-Length,Content-Range' always;
-#    add_header 'Access-Control-Allow-Credentials' 'true' always;
-#    add_header 'Access-Control-Max-Age' '1728000' always;
-#
 #    # Logging
 #    access_log /var/log/nginx/api.yourdomain.store.access.log;
 #    error_log /var/log/nginx/api.yourdomain.store.error.log;
 #
-#    # Handle preflight OPTIONS requests for CORS
-#    location @options {
+#    # Proxy to backend container
+#    location / {
+#        # CORS headers - defined at location level so they apply to all responses
+#        # including the 204 response from the if block below
+#        # NOTE: Backend CORS is disabled in production (see src/main.ts)
 #        add_header 'Access-Control-Allow-Origin' 'https://app.yourdomain.store' always;
 #        add_header 'Access-Control-Allow-Methods' 'GET, POST, PUT, DELETE, PATCH, OPTIONS' always;
 #        add_header 'Access-Control-Allow-Headers' 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization' always;
+#        add_header 'Access-Control-Expose-Headers' 'Content-Length,Content-Range' always;
+#        add_header 'Access-Control-Allow-Credentials' 'true' always;
 #        add_header 'Access-Control-Max-Age' '1728000' always;
-#        add_header 'Content-Type' 'text/plain; charset=utf-8';
-#        add_header 'Content-Length' '0';
-#        return 204;
-#    }
 #
-#    # Proxy to backend container
-#    location / {
-#        # Handle OPTIONS requests separately
+#        # Handle preflight OPTIONS requests
+#        # Return 204 immediately without proxying to backend
 #        if ($request_method = 'OPTIONS') {
 #            return 204;
 #        }
@@ -85,9 +77,9 @@ server {
 #        client_max_body_size 50M;
 #
 #        # Don't cache API responses
-#        add_header Cache-Control "no-cache, no-store, must-revalidate";
-#        add_header Pragma "no-cache";
-#        add_header Expires "0";
+#        add_header Cache-Control "no-cache, no-store, must-revalidate" always;
+#        add_header Pragma "no-cache" always;
+#        add_header Expires "0" always;
 #    }
 #
 #    # Health check endpoint
