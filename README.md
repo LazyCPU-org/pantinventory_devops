@@ -74,44 +74,43 @@ Internal Docker Network
 
 ## Deployment Workflow
 
-1. **Server Setup**
+### Quick Start
 
+For a rapid setup, see the [Deployment Quick Start Guide](./docs/02-deployment/QUICKSTART.md).
+
+### Detailed Stages
+
+1. **[Stage 1: Server Setup](./docs/01-server-setup/README.md)**
    - Initial VPS provisioning
    - SSH key-based authentication configuration
    - Disable password authentication
    - Install Docker and Docker Compose
+   - Configure firewall and security measures
 
-2. **Network Configuration**
+2. **[Stage 2: Automated Deployment](./docs/02-deployment/README.md)**
+   - Configure GitHub Actions workflows
+   - Set up GitHub Secrets for secure credential management
+   - Create automated CI/CD pipelines for backend and frontend
+   - Enable automatic deployments on push to main branch
+   - Configure environment-specific deployments (staging/production)
 
+3. **Network Configuration** *(Coming soon)*
    - Create Docker network for internal communication
    - Configure nginx-proxy-manager as internet-facing service
    - Set up internal routing between containers
 
-3. **Application Deployment**
-
-   - Deploy database container
-   - Deploy backend container (with migration/seeding)
-   - Deploy frontend container
-   - Configure nginx-proxy-manager routing rules
-
-4. **SSL Configuration**
+4. **SSL Configuration** *(Coming soon)*
    - Configure domain(s) in nginx-proxy-manager
    - Enable Let's Encrypt SSL automation
    - Set up HTTP to HTTPS redirection
 
-5. **CORS Configuration**
+5. **CORS Configuration** *(Coming soon)*
    - Configure CORS headers in nginx-proxy-manager for backend API routes
    - Allow frontend domain to access backend APIs
    - Set proper Access-Control-Allow-Origin headers
    - Configure preflight request handling (OPTIONS method)
 
-6. **CI/CD Pipeline Setup**
-   - Configure GitHub Actions workflows for each repository
-   - Set up GitHub Secrets for VPS access and credentials
-   - Configure Docker Secrets for runtime credential management
-   - Implement automated deployment triggers on push to main branch
-
-7. **Database Access Setup**
+6. **Database Access Setup** *(Coming soon)*
    - Configure SSH server for key-based authentication only
    - Add authorized users' public keys to server
    - Configure Docker network to expose database only internally
