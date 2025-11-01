@@ -23,8 +23,6 @@ services:
       - nginx-logs:/var/log/nginx
     networks:
       - pantinventory_network
-    depends_on:
-      - certbot
     healthcheck:
       test: ["CMD", "nginx", "-t"]
       interval: 30s
@@ -42,6 +40,8 @@ services:
 
       # Webroot for ACME challenges
       - certbot-webroot:/var/www/certbot
+    networks:
+      - pantinventory_network
     # Automatic renewal loop - runs certbot renew every 12 hours
     # For manual operations, use: docker compose run --rm --entrypoint certbot certbot <command>
     entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
