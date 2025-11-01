@@ -260,7 +260,7 @@ If you prefer manual control:
 cd /opt/pantinventory/nginx
 
 # Request certificate for frontend
-docker compose run --rm certbot certonly \
+docker compose run --rm --entrypoint certbot certbot certonly \
   --webroot \
   -w /var/www/certbot \
   -d app.yourdomain.store \
@@ -269,7 +269,7 @@ docker compose run --rm certbot certonly \
   --no-eff-email
 
 # Request certificate for backend
-docker compose run --rm certbot certonly \
+docker compose run --rm --entrypoint certbot certbot certonly \
   --webroot \
   -w /var/www/certbot \
   -d api.yourdomain.store \
@@ -290,7 +290,7 @@ docker compose run --rm certbot certonly \
 
 ```bash
 # List all certificates
-docker compose -f /opt/pantinventory/nginx/docker-compose.yml run --rm certbot certificates
+docker compose -f /opt/pantinventory/nginx/docker-compose.yml run --rm --entrypoint certbot certbot certificates
 
 # Check certificate details
 sudo ls -la /etc/letsencrypt/live/
@@ -324,7 +324,9 @@ Find the HTTPS server block (starting around line 21) and **uncomment all lines*
 # HTTPS - Main frontend configuration
 # UNCOMMENT THIS BLOCK AFTER OBTAINING SSL CERTIFICATES
 #server {
-#    listen 443 ssl http2;
+#    listen 443 ssl;
+#    listen [::]:443 ssl;
+#    http2 on;
 #    ...
 #}
 ```
@@ -333,7 +335,9 @@ Find the HTTPS server block (starting around line 21) and **uncomment all lines*
 ```nginx
 # HTTPS - Main frontend configuration
 server {
-    listen 443 ssl http2;
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    http2 on;
     ...
 }
 ```
@@ -498,6 +502,36 @@ The certbot container runs in the background and:
 
 Nginx automatically picks up renewed certificates on next reload.
 
+#### Verify Auto-Renewal is Working
+
+Check that the certbot container is running and performing automatic renewals:
+
+```bash
+# Check certbot container is running
+docker ps | grep pantinventory_certbot
+
+# View certbot logs to see renewal attempts
+docker logs pantinventory_certbot
+
+# You should see log entries like:
+# "Cert not yet due for renewal"
+# or
+# "Certificate renewed successfully"
+
+# Check when the last renewal check happened
+docker logs pantinventory_certbot --tail 50
+
+# Verify the renewal timer is running (should show renewal checks every 12 hours)
+docker logs pantinventory_certbot --since 24h
+```
+
+The certbot container will automatically attempt renewal every 12 hours. Certificates are only renewed when they are within 30 days of expiry.
+
+**Expected behavior:**
+- Fresh certificates (< 30 days old): Logs show "Cert not yet due for renewal"
+- Certificates expiring soon (< 30 days): Certbot will automatically renew them
+- After renewal: Nginx will use the new certificates on next reload (happens automatically via the certbot renewal hook)
+
 ### Manual Renewal
 
 Force certificate renewal:
@@ -506,7 +540,7 @@ Force certificate renewal:
 cd /opt/pantinventory/nginx
 
 # Renew all certificates
-docker compose run --rm certbot renew
+docker compose run --rm --entrypoint certbot certbot renew
 
 # Reload nginx to use new certificates
 docker compose exec nginx nginx -s reload
@@ -517,14 +551,14 @@ docker compose exec nginx nginx -s reload
 Test renewal process without actually renewing:
 
 ```bash
-docker compose run --rm certbot renew --dry-run
+docker compose run --rm --entrypoint certbot certbot renew --dry-run
 ```
 
 ### Check Certificate Expiry
 
 ```bash
 # List all certificates with expiry dates
-docker compose run --rm certbot certificates
+docker compose run --rm --entrypoint certbot certbot certificates
 
 # Check specific certificate
 sudo openssl x509 -in /etc/letsencrypt/live/app.yourdomain.store/fullchain.pem -noout -dates
@@ -742,7 +776,7 @@ What it does:
 5. **Obtain SSL certificate:**
    ```bash
    cd /opt/pantinventory/nginx
-   docker compose run --rm certbot certonly \
+   docker compose run --rm --entrypoint certbot certbot certonly \
      --webroot -w /var/www/certbot \
      -d dashboard.example.com \
      --email your-email@example.com \
@@ -880,7 +914,7 @@ sudo netstat -tlnp | grep -E ':80|:443'
 
 ```bash
 # List all certificates
-docker compose -f /opt/pantinventory/nginx/docker-compose.yml run --rm certbot certificates
+docker compose -f /opt/pantinventory/nginx/docker-compose.yml run --rm --entrypoint certbot certbot certificates
 
 # Check expiry
 sudo openssl x509 -in /etc/letsencrypt/live/app.yourdomain.store/fullchain.pem -noout -dates
@@ -924,7 +958,7 @@ docker logs pantinventory_certbot
 
 # Force renewal
 cd /opt/pantinventory/nginx
-docker compose run --rm certbot renew --force-renewal
+docker compose run --rm --entrypoint certbot certbot renew --force-renewal
 docker compose exec nginx nginx -s reload
 ```
 
