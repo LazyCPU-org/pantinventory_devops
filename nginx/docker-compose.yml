@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   nginx:
     image: nginx:alpine
@@ -36,7 +34,7 @@ services:
   certbot:
     image: certbot/certbot:latest
     container_name: pantinventory_certbot
-    restart: "no"  # Only runs on-demand, not continuously
+    restart: unless-stopped
     volumes:
       # SSL certificates
       - /etc/letsencrypt:/etc/letsencrypt
@@ -44,6 +42,8 @@ services:
 
       # Webroot for ACME challenges
       - certbot-webroot:/var/www/certbot
+    # Automatic renewal loop - runs certbot renew every 12 hours
+    # For manual operations, use: docker compose run --rm --entrypoint certbot certbot <command>
     entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
 
 volumes:
