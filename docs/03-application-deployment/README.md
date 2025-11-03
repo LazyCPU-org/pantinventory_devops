@@ -98,10 +98,12 @@ sudo useradd -r -m -d /home/github-deployer -s /bin/bash github-deployer
 
 # Create .ssh directory for the new user
 sudo mkdir -p /home/github-deployer/.ssh
+sudo chown github-deployer:github-deployer /home/github-deployer/.ssh
 sudo chmod 700 /home/github-deployer/.ssh
 ```
 
 **What this does:**
+
 - `-r`: Creates a system user (UID < 1000)
 - `-m`: Creates home directory
 - `-d /home/github-deployer`: Specifies home directory location
@@ -109,19 +111,43 @@ sudo chmod 700 /home/github-deployer/.ssh
 
 ### 1.2 Set Up Project Directories
 
-Create the application directories and grant ownership to the deployment user:
+Create the application directories with shared group access so both your user and `github-deployer` can manage deployments:
 
 ```bash
+# Create a deployment group for shared access
+sudo groupadd deploygroup
+
+# Add both your user and github-deployer to the group
+sudo usermod -aG deploygroup $USER
+sudo usermod -aG deploygroup github-deployer
+
 # Create project directory structure
 sudo mkdir -p /opt/pantinventory/backend
 sudo mkdir -p /opt/pantinventory/frontend
 
-# Grant ownership to deployment user
-sudo chown -R github-deployer:github-deployer /opt/pantinventory
+# Set ownership: github-deployer as owner, deploygroup as group
+sudo chown -R github-deployer:deploygroup /opt/pantinventory
+
+# Set permissions: owner and group can read/write
+sudo chmod -R g+w /opt/pantinventory
+
+# Set SGID bit so new files inherit the group
+sudo find /opt/pantinventory -type d -exec chmod g+s {} \;
 
 # Verify permissions
 ls -la /opt/pantinventory
+# Should show: drwxrwsr-x ... github-deployer deploygroup
+
+# Log out and back in for group changes to take effect
+# Or run: newgrp deploygroup
 ```
+
+**What this does:**
+
+- Creates a shared group (`deploygroup`) for deployment access
+- Both you and `github-deployer` can read/write to `/opt/pantinventory`
+- SGID bit ensures new files inherit the group ownership
+- Allows manual deployments from your account when needed
 
 ### 1.3 Configure Docker Access
 
@@ -288,11 +314,13 @@ sudo cat /home/github-deployer/.ssh/github_actions_deploy
 ```
 
 **Copy the entire output**, including:
+
 - `-----BEGIN OPENSSH PRIVATE KEY-----`
 - All lines in between
 - `-----END OPENSSH PRIVATE KEY-----`
 
 **⚠️ SECURITY WARNING:**
+
 - This private key will be stored in GitHub Secrets (encrypted)
 - Never commit this key to any repository
 - Never share it via email, Slack, or insecure channels
@@ -323,10 +351,10 @@ If you see "Connection successful", the setup is correct.
 
 You now have two SSH keys configured:
 
-| Key Name | Purpose | Public Key Location | Private Key Location | Used By |
-|----------|---------|---------------------|----------------------|---------|
-| `github_vps` | VPS accesses GitHub repos | GitHub SSH keys | VPS `/home/github-deployer/.ssh/github_vps` | VPS git operations |
-| `github_actions_deploy` | GitHub Actions accesses VPS | VPS `authorized_keys` | GitHub Secrets | GitHub Actions workflows |
+| Key Name                | Purpose                     | Public Key Location   | Private Key Location                        | Used By                  |
+| ----------------------- | --------------------------- | --------------------- | ------------------------------------------- | ------------------------ |
+| `github_vps`            | VPS accesses GitHub repos   | GitHub SSH keys       | VPS `/home/github-deployer/.ssh/github_vps` | VPS git operations       |
+| `github_actions_deploy` | GitHub Actions accesses VPS | VPS `authorized_keys` | GitHub Secrets                              | GitHub Actions workflows |
 
 **Authentication Flow:**
 
@@ -367,17 +395,15 @@ Go to your backend repository on GitHub:
 
 Add these secrets:
 
-| Secret Name | Value | Example |
-|-------------|-------|---------|
+| Secret Name           | Value                     | Example                                  |
+| --------------------- | ------------------------- | ---------------------------------------- |
 | `VPS_SSH_PRIVATE_KEY` | Private key from Step 2.6 | `-----BEGIN OPENSSH PRIVATE KEY-----...` |
-| `VPS_HOST` | Your VPS IP address | `192.168.1.100` |
-| `VPS_USER` | Deployment user | `github-deployer` |
-| `VPS_PROJECT_PATH` | Backend deployment path | `/opt/pantinventory/backend` |
-| `DB_PASSWORD` | Database password | Generate strong password |
-| `JWT_SECRET` | JWT secret key | Generate random string (32+ chars) |
-| `ADMIN_PASSWORD` | Admin user password | Generate strong password |
-| `FRONTEND_URL` | Frontend URL | `https://pantinventory.yourdomain.com` |
-| `BACKEND_URL` | Backend API URL | `https://api.pantinventory.yourdomain.com` |
+| `VPS_HOST`            | Your VPS IP address       | `192.168.1.100`                          |
+| `VPS_USER`            | Deployment user           | `github-deployer`                        |
+| `VPS_PROJECT_PATH`    | Backend deployment path   | `/opt/pantinventory/backend`             |
+| `DB_PASSWORD`         | Database password         | Generate strong password                 |
+| `JWT_SECRET`          | JWT secret key            | Generate random string (32+ chars)       |
+| `ADMIN_PASSWORD`      | Admin user password       | Generate strong password                 |
 
 **Generate secure secrets:**
 
@@ -390,13 +416,13 @@ openssl rand -base64 32
 
 Go to your frontend repository on GitHub and add:
 
-| Secret Name | Value | Example |
-|-------------|-------|---------|
-| `VPS_SSH_PRIVATE_KEY` | Same private key from Step 2.6 | `-----BEGIN OPENSSH PRIVATE KEY-----...` |
-| `VPS_HOST` | Your VPS IP address | `192.168.1.100` |
-| `VPS_USER` | Deployment user | `github-deployer` |
-| `VPS_PROJECT_PATH` | Frontend deployment path | `/opt/pantinventory/frontend` |
-| `VITE_API_URL` | Backend API URL | `https://api.pantinventory.yourdomain.com` |
+| Secret Name           | Value                          | Example                                    |
+| --------------------- | ------------------------------ | ------------------------------------------ |
+| `VPS_SSH_PRIVATE_KEY` | Same private key from Step 2.6 | `-----BEGIN OPENSSH PRIVATE KEY-----...`   |
+| `VPS_HOST`            | Your VPS IP address            | `192.168.1.100`                            |
+| `VPS_USER`            | Deployment user                | `github-deployer`                          |
+| `VPS_PROJECT_PATH`    | Frontend deployment path       | `/opt/pantinventory/frontend`              |
+| `VITE_API_URL`        | Backend API URL                | `https://api.pantinventory.yourdomain.com` |
 
 ### 3.3 Verify Secrets
 
@@ -438,6 +464,22 @@ git config pull.rebase false
 # Exit back to your user
 exit
 ```
+
+**Configure Git safe directories for your personal user:**
+
+Since the repositories are owned by `github-deployer`, you need to mark them as safe for your user to access:
+
+```bash
+# As your personal user (not github-deployer)
+git config --global --add safe.directory /opt/pantinventory/backend
+git config --global --add safe.directory /opt/pantinventory/frontend
+
+# Verify you can now access the repos
+cd /opt/pantinventory/backend
+git status
+```
+
+This is a Git security feature introduced in Git 2.35.2 that prevents accessing repositories owned by other users.
 
 ### 4.2 Add Workflow to Backend Repository
 
@@ -763,6 +805,7 @@ You can also trigger deployments manually:
 **Error**: `Permission denied (publickey)`
 
 **Solutions:**
+
 - Verify `VPS_SSH_PRIVATE_KEY` secret contains the complete key (including headers/footers)
 - Check `VPS_HOST` and `VPS_USER` are correct (`github-deployer`)
 - Ensure public key is in `/home/github-deployer/.ssh/authorized_keys`
@@ -773,6 +816,7 @@ You can also trigger deployments manually:
 **Error**: Tests fail during CI
 
 **Solutions:**
+
 - Run tests locally first: `npm test`
 - Fix failing tests before pushing
 - Check test environment configuration
@@ -782,6 +826,7 @@ You can also trigger deployments manually:
 **Error**: Docker build fails on VPS
 
 **Solutions:**
+
 - Check disk space: `df -h`
 - Check RAM: `free -h`
 - Verify Dockerfile syntax
@@ -793,6 +838,7 @@ You can also trigger deployments manually:
 **Error**: Cannot write to directories
 
 **Solutions:**
+
 - Verify ownership: `ls -la /opt/pantinventory`
 - Fix ownership: `sudo chown -R github-deployer:github-deployer /opt/pantinventory`
 - Check docker group: `groups github-deployer`
@@ -802,6 +848,7 @@ You can also trigger deployments manually:
 **Error**: Repository not found or permission denied
 
 **Solutions:**
+
 - Test GitHub SSH as deployment user: `sudo -u github-deployer ssh -T git@github.com`
 - Verify public key is added to GitHub
 - Check SSH config: `sudo cat /home/github-deployer/.ssh/config`
@@ -812,6 +859,7 @@ You can also trigger deployments manually:
 **Error**: Database migrations fail
 
 **Solutions:**
+
 - Check database is running: `docker ps`
 - Check database logs: `docker compose logs postgres`
 - Verify database credentials in secrets
@@ -854,6 +902,7 @@ docker network inspect pantinventory_network
 ### Dedicated Deployment User
 
 ✅ **Benefits of using `github-deployer` user:**
+
 - Isolated from personal accounts
 - Limited permissions (only `/opt/pantinventory`)
 - Easy to audit deployment activities
@@ -863,19 +912,23 @@ docker network inspect pantinventory_network
 ### SSH Key Security
 
 1. **Separate Keys for Different Purposes:**
+
    - Never reuse your personal SSH key for deployments
    - One key for GitHub access (`github_vps`)
    - One key for GitHub Actions access (`github_actions_deploy`)
 
 2. **Key Rotation:**
+
    - Rotate deployment keys every 6-12 months
    - Process: Generate new key → Add to VPS → Update GitHub Secrets → Remove old key
 
 3. **No Passphrase for Automation:**
+
    - GitHub Actions keys must have no passphrase
    - Your personal keys SHOULD have passphrases
 
 4. **Monitor Key Usage:**
+
    ```bash
    # Check SSH login attempts
    sudo tail -f /var/log/auth.log | grep github-deployer
@@ -887,16 +940,19 @@ docker network inspect pantinventory_network
 ### GitHub Secrets
 
 1. **Never Commit Secrets:**
+
    - Never commit private keys to repositories
    - Add `.ssh/` and `*.pem` to `.gitignore`
 
 2. **Use Strong Secrets:**
+
    ```bash
    # Generate strong passwords
    openssl rand -base64 32
    ```
 
 3. **Limit Repository Access:**
+
    - Only grant access to trusted team members
    - Regularly review who has access
 
@@ -907,11 +963,13 @@ docker network inspect pantinventory_network
 ### VPS Security
 
 1. **Regular Updates:**
+
    ```bash
    sudo apt update && sudo apt upgrade -y
    ```
 
 2. **Monitor Logs:**
+
    ```bash
    # Check authentication logs
    sudo tail -f /var/log/auth.log
@@ -921,6 +979,7 @@ docker network inspect pantinventory_network
    ```
 
 3. **Firewall Configuration:**
+
    - Ensure UFW is enabled
    - SSH port 22 should be allowed
    - Fail2Ban active to prevent brute-force
@@ -957,12 +1016,14 @@ The workflows support both staging and production:
 #### Setup Staging Environment
 
 1. Create a `staging` branch:
+
    ```bash
    git checkout -b staging
    git push origin staging
    ```
 
 2. Add environment-specific secrets in GitHub:
+
    - Go to Settings → Environments → New environment
    - Name: `staging`
    - Add staging-specific secrets (different passwords, URLs, etc.)
@@ -992,12 +1053,14 @@ After completing automated deployment setup:
 Before proceeding:
 
 **Deployment User Setup:**
+
 - [ ] `github-deployer` user created
 - [ ] Project directories created with correct ownership
 - [ ] Deployment user added to docker group
 - [ ] Permissions verified
 
 **SSH Keys Configuration:**
+
 - [ ] GitHub VPS key generated (`github_vps`)
 - [ ] GitHub VPS public key added to GitHub
 - [ ] SSH config created for GitHub
@@ -1007,21 +1070,25 @@ Before proceeding:
 - [ ] GitHub Actions private key copied securely
 
 **GitHub Configuration:**
+
 - [ ] GitHub Secrets added to backend repository
 - [ ] GitHub Secrets added to frontend repository
 - [ ] Secrets verified in GitHub UI
 
 **Repository Setup:**
+
 - [ ] Backend cloned to VPS as `github-deployer`
 - [ ] Frontend cloned to VPS as `github-deployer`
 - [ ] Git configured for pull deployments
 
 **Workflow Configuration:**
+
 - [ ] Backend workflow file added and committed
 - [ ] Frontend workflow file added and committed
 - [ ] First deployment tested successfully
 
 **Verification:**
+
 - [ ] Applications running on VPS
 - [ ] Docker containers healthy
 - [ ] Logs show no errors
