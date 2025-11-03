@@ -442,7 +442,7 @@ Once Stage 1 is complete:
    See: [Stage 2: Network Configuration](../02-network-configuration/README.md)
 
 3. **Configure GitHub Actions access** for application deployment:
-   - See [GitHub Actions Access Guide](../03-application-deployment/github-actions-setup.md)
+   - See [Application Deployment Guide](../03-application-deployment/README.md)
 
 ---
 

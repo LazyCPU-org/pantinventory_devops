@@ -573,7 +573,7 @@ ls -la /opt/pantinventory/*/docker/
 ### GitHub Actions Deployment
 - [ ] All secrets added to GitHub repository
 - [ ] Workflow files created (`.github/workflows/`)
-- [ ] SSH access configured (see [github-actions-setup.md](03-application-deployment/github-actions-setup.md))
+- [ ] SSH access configured (see [Application Deployment](03-application-deployment/README.md))
 - [ ] Test deployment successful
 - [ ] Health checks passing
 
@@ -581,7 +581,7 @@ ls -la /opt/pantinventory/*/docker/
 
 ## Additional Resources
 
-- [GitHub Actions Setup Guide](03-application-deployment/github-actions-setup.md)
+- [Application Deployment Guide](03-application-deployment/README.md)
 - [Docker Compose Environment Variables](https://docs.docker.com/compose/environment-variables/)
 - [Vite Environment Variables](https://vitejs.dev/guide/env-and-mode.html)
 - [12-Factor App Config](https://12factor.net/config)
